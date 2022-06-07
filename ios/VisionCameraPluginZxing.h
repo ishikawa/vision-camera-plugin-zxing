@@ -1,5 +1,3 @@
-#import <React/RCTBridgeModule.h>
-
-@interface VisionCameraPluginZxing : NSObject <RCTBridgeModule>
+@interface VisionCameraPluginZxing : NSObject
 
 @end
