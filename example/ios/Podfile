@@ -19,6 +19,8 @@ target 'ExampleApp' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
+  pod 'vision-camera-plugin-zxing', :path => '../..'
+
   target 'ExampleAppTests' do
     inherit! :complete
     # Pods for testing

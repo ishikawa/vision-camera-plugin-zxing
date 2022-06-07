@@ -1,10 +1,19 @@
+import 'react-native-reanimated';
 import React, { useEffect, useState } from 'react';
 import { Alert, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
-import { Camera, useCameraDevices } from 'react-native-vision-camera';
+import { Camera, useCameraDevices, useFrameProcessor } from 'react-native-vision-camera';
+import { scanBarcodes } from 'vision-camera-plugin-zxing';
 
 const App: React.FC = () => {
-  const devices = useCameraDevices();
+  const cameraDevices = useCameraDevices();
+  const cameraDevice = cameraDevices.back;
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
+
+  const frameProcessor = useFrameProcessor((frame) => {
+    'worklet';
+    const value = scanBarcodes(frame, []);
+    console.log('value =', value);
+  }, []);
 
   // Camera permission
   useEffect(() => {
@@ -41,9 +50,14 @@ const App: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {hasCameraPermission ? (
+      {cameraDevice && hasCameraPermission ? (
         // @ts-ignore
-        <Camera style={[styles.camera]} device={devices.back} isActive={true} />
+        <Camera
+          frameProcessor={frameProcessor}
+          style={[styles.camera]}
+          device={cameraDevice}
+          isActive={true}
+        />
       ) : null}
       <StatusBar barStyle="default" />
     </SafeAreaView>
