@@ -12,7 +12,10 @@ const App: React.FC = () => {
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet';
     const value = scanBarcodes(frame, []);
-    console.log('value =', value);
+
+    if (value.length > 0) {
+      console.log('value =', value[0]);
+    }
   }, []);
 
   // Camera permission
