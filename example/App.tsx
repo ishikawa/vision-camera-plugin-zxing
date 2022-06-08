@@ -2,7 +2,7 @@ import 'react-native-reanimated';
 import React, { useEffect, useState } from 'react';
 import { Alert, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
 import { Camera, useCameraDevices, useFrameProcessor } from 'react-native-vision-camera';
-import { scanBarcodes } from 'vision-camera-plugin-zxing';
+import { scanBarCodes } from 'vision-camera-plugin-zxing';
 
 const App: React.FC = () => {
   const cameraDevices = useCameraDevices();
@@ -11,7 +11,7 @@ const App: React.FC = () => {
 
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet';
-    const value = scanBarcodes(frame, []);
+    const value = scanBarCodes(frame, []);
 
     if (value.length > 0) {
       console.log('value =', value[0]);
