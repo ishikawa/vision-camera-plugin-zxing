@@ -144,18 +144,34 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
   CGImageRelease(rotatedImage);
 
   if (result) {
-    // The coded result as a string. The raw data can be accessed with
-    // result.rawBytes and result.length.
-    NSString *contents = result.text;
-
     // The barcode format, such as a QR code or UPC-A
     const ZXBarcodeFormat format = result.barcodeFormat;
 
-    NSLog(@"QR code = %@ (format = %d)", contents, format);
+    // TODO: Convert keys in resultMetadata to string.
+    NSLog(@"resultMetadata = %@", result.resultMetadata);
+    if (result.resultMetadata) {
+      for (NSString *key in result.resultMetadata) {
+        id value = result.resultMetadata[key];
+
+        NSLog(@"metadata: %@ = %@ (%@)", key, value,
+              NSStringFromClass([value class]));
+      }
+    }
 
     return @[ @{
-      @"contents" : contents,
+      // raw text encoded by the barcode
+      @"text" : result.text,
+      // representing the format of the barcode that was decoded
       @"format" : @(format),
+      // points related to the barcode in the image. These are typically points
+      // identifying finder patterns or the corners of the barcode. The exact
+      // meaning is specific to the type of barcode that was decoded.
+      @"points" : result.resultPoints ? result.resultPoints : [NSNull null],
+      // mapping ZXResultMetadataType keys to values. May be nil. This contains
+      // optional metadata about what was detected about the barcode, like
+      // orientation.
+      @"metadata" : result.resultMetadata ? result.resultMetadata
+                                          : [NSNull null],
     } ];
 
   } else if (error != nil) {
