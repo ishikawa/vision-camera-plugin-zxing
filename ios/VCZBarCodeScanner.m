@@ -20,6 +20,127 @@ rotationDegreesForUIImageOrientation(UIImageOrientation orientation) {
   }
 }
 
+// ZXingObjC/core/ZXResultMetadataType.h
+static NSString *
+createStringFromZXResultMetadataType(ZXResultMetadataType type) {
+  switch (type) {
+  /**
+   * Unspecified, application-specific metadata. Maps to an unspecified
+   * NSObject.
+   */
+  case kResultMetadataTypeOther:
+    return @"Other";
+
+  /**
+   * Denotes the likely approximate orientation of the barcode in the image.
+   * This value is given as degrees rotated clockwise from the normal, upright
+   * orientation. For example a 1D barcode which was found by reading
+   * top-to-bottom would be said to have orientation "90". This key maps to an
+   * integer whose value is in the range [0,360).
+   */
+  case kResultMetadataTypeOrientation:
+    return @"Orientation";
+
+  /**
+   * 2D barcode formats typically encode text, but allow for a sort of 'byte
+   * mode' which is sometimes used to encode binary data. While ZXResult makes
+   * available the complete raw bytes in the barcode for these formats, it does
+   * not offer the bytes from the byte segments alone.
+   *
+   * This maps to an array of byte arrays corresponding to the
+   * raw bytes in the byte segments in the barcode, in order.
+   */
+  case kResultMetadataTypeByteSegments:
+    return @"ByteSegments";
+
+  /**
+   * Error correction level used, if applicable. The value type depends on the
+   * format, but is typically a String.
+   */
+  case kResultMetadataTypeErrorCorrectionLevel:
+    return @"ErrorCorrectionLevel";
+
+  /**
+   * For some periodicals, indicates the issue number as an integer.
+   */
+  case kResultMetadataTypeIssueNumber:
+    return @"IssueNumber";
+
+  /**
+   * For some products, indicates the suggested retail price in the barcode as a
+   * formatted NSString.
+   */
+  case kResultMetadataTypeSuggestedPrice:
+    return @"SuggestedPrice";
+
+  /**
+   * For some products, the possible country of manufacture as NSString denoting
+   * the ISO country code. Some map to multiple possible countries, like
+   * "US/CA".
+   */
+  case kResultMetadataTypePossibleCountry:
+    return @"PossibleCountry";
+
+  /**
+   * For some products, the extension text
+   */
+  case kResultMetadataTypeUPCEANExtension:
+    return @"UPCEANExtension";
+
+  /**
+   * PDF417-specific metadata
+   */
+  case kResultMetadataTypePDF417ExtraMetadata:
+    return @"PDF417ExtraMetadata";
+
+  /**
+   * If the code format supports structured append and the current scanned code
+   * is part of one then the sequence number is given with it.
+   */
+  case kResultMetadataTypeStructuredAppendSequence:
+    return @"StructuredAppendSequence";
+
+    /**
+     * If the code format supports structured append and the current scanned
+     * code is part of one then the parity is given with it.
+     */
+  case kResultMetadataTypeStructuredAppendParity:
+    return @"StructuredAppendParity";
+  default:
+    return [@(type) stringValue];
+  }
+}
+
+static inline id convertZXResultPoint(ZXResultPoint *point) {
+  return @{@"x" : @(point.x), @"y" : @(point.y)};
+}
+
+// To Base64
+static id convertZXByteArray(ZXByteArray *byteSegment) {
+  NSData *data = [NSData dataWithBytes:byteSegment.array
+                                length:byteSegment.length * sizeof(int8_t)];
+  return [data base64EncodedStringWithOptions:0];
+}
+
+// QRCode metadata value to React native value.
+static id convertMetadataValue(id value) {
+  if ([value isKindOfClass:[ZXResultPoint class]]) {
+    return convertZXResultPoint(value);
+  } else if ([value isKindOfClass:[ZXByteArray class]]) {
+    return convertZXByteArray(value);
+  } else if ([value isKindOfClass:[NSArray class]]) {
+    NSMutableArray *newValues =
+        [NSMutableArray arrayWithCapacity:[(NSArray *)value count]];
+
+    for (id v in value) {
+      [newValues addObject:convertMetadataValue(v)];
+    }
+
+    return newValues;
+  }
+
+  return value;
+}
 static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
   if (degrees == 0.0f) {
     CGImageRetain(original);
@@ -147,14 +268,31 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
     // The barcode format, such as a QR code or UPC-A
     const ZXBarcodeFormat format = result.barcodeFormat;
 
-    // TODO: Convert keys in resultMetadata to string.
-    NSLog(@"resultMetadata = %@", result.resultMetadata);
-    if (result.resultMetadata) {
-      for (NSString *key in result.resultMetadata) {
-        id value = result.resultMetadata[key];
+    // We have to convert keys in resultMetadata to string due to
+    // VisionCamera limitation.
+    NSMutableDictionary *meradata = nil;
 
-        NSLog(@"metadata: %@ = %@ (%@)", key, value,
-              NSStringFromClass([value class]));
+    if (result.resultMetadata != nil) {
+      meradata = [@{} mutableCopy];
+
+      for (id key in result.resultMetadata) {
+        id value = result.resultMetadata[key];
+        NSString *stringKey =
+            [key isKindOfClass:[NSNumber class]]
+                ? createStringFromZXResultMetadataType([key intValue])
+                : [key description];
+
+        NSLog(@"metadata: %@ = %@", stringKey, value);
+        meradata[stringKey] = convertMetadataValue(value);
+      }
+    }
+
+    NSMutableArray *points = nil;
+    if (result.resultPoints) {
+      points = [NSMutableArray arrayWithCapacity:4];
+
+      for (ZXResultPoint *pt in result.resultPoints) {
+        [points addObject:convertZXResultPoint(pt)];
       }
     }
 
@@ -166,12 +304,11 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
       // points related to the barcode in the image. These are typically points
       // identifying finder patterns or the corners of the barcode. The exact
       // meaning is specific to the type of barcode that was decoded.
-      @"points" : result.resultPoints ? result.resultPoints : [NSNull null],
+      @"points" : points ? points : [NSNull null],
       // mapping ZXResultMetadataType keys to values. May be nil. This contains
       // optional metadata about what was detected about the barcode, like
       // orientation.
-      @"metadata" : result.resultMetadata ? result.resultMetadata
-                                          : [NSNull null],
+      @"metadata" : meradata ? meradata : [NSNull null],
     } ];
 
   } else if (error != nil) {
