@@ -24,7 +24,7 @@
   "scripts": {
     "test": "jest",
     "typescript": "tsc --noEmit",
-    "lint": "eslint \"**/*.{js,ts,tsx}\"",
+    "lint": "eslint \"**/*.{ts,tsx}\"",
     "format": "prettier --write --no-error-on-unmatched-pattern '{src,example}/**/*.{js,jsx,ts,tsx}'",
     "prepare": "bob build",
     "release": "release-it",
