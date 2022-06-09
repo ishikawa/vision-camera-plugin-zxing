@@ -116,10 +116,25 @@ static inline id convertZXResultPoint(ZXResultPoint *point) {
 }
 
 // To Base64
+/**
+ * Converts a `ZXByteArray` object to React Native compatible object.
+ *
+ * This function converts a `ZXByteArray` object to an array containing
+ * integers.
+ */
 static id convertZXByteArray(ZXByteArray *byteSegment) {
-  NSData *data = [NSData dataWithBytes:byteSegment.array
-                                length:byteSegment.length * sizeof(int8_t)];
-  return [data base64EncodedStringWithOptions:0];
+  // Basically, most application converts raw bytes into base64 string,
+  // but we converts it to an array containing integers.
+  // We chose this approach because a byte segment is relatively small
+  // in the most cases.
+  NSMutableArray *bytes =
+      [[NSMutableArray alloc] initWithCapacity:byteSegment.length];
+
+  for (int i = 0; i < byteSegment.length; i++) {
+    [bytes addObject:@(byteSegment.array[i])];
+  }
+
+  return bytes;
 }
 
 // QRCode metadata value to React native value.
