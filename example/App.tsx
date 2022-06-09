@@ -1,7 +1,11 @@
 import 'react-native-reanimated';
 import React, { useEffect, useState } from 'react';
 import { Alert, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
-import { Camera, useCameraDevices, useFrameProcessor } from 'react-native-vision-camera';
+import {
+  Camera,
+  useCameraDevices,
+  useFrameProcessor,
+} from 'react-native-vision-camera';
 import { scanBarCodes } from 'vision-camera-plugin-zxing';
 
 const App: React.FC = () => {
