@@ -1,26 +1,28 @@
 import 'react-native-reanimated';
-import React, { useEffect, useState } from 'react';
-import { Alert, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  View,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  LayoutRectangle,
+} from 'react-native';
 import {
   Camera,
   useCameraDevices,
   useFrameProcessor,
 } from 'react-native-vision-camera';
-import { scanBarCodes } from 'vision-camera-plugin-zxing';
+import { runOnJS } from 'react-native-reanimated';
+import { scanBarCodes, ScanResult } from 'vision-camera-plugin-zxing';
 
 const App: React.FC = () => {
   const cameraDevices = useCameraDevices();
   const cameraDevice = cameraDevices.back;
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
-
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-    const value = scanBarCodes(frame, []);
-
-    if (value) {
-      console.log('value =', value);
-    }
-  }, []);
+  const [, setScanResult] = useState<ScanResult | null>(null);
+  const [codeRect, setCodeRect] = useState<LayoutRectangle | null>(null);
+  const [cameraRect, setCameraRect] = useState<LayoutRectangle | null>(null);
 
   // Camera permission
   useEffect(() => {
@@ -55,6 +57,49 @@ const App: React.FC = () => {
     })();
   }, []);
 
+  const onScanBarCode = useCallback(
+    (scanResult: ScanResult) => {
+      console.log('scanResult =', scanResult, 'cameraRect =', cameraRect);
+      setScanResult(scanResult);
+
+      if (cameraRect && scanResult.code?.points.length === 4) {
+        const points = scanResult.code.points;
+
+        const scaleX = cameraRect.width / scanResult.width;
+        const scaleY = cameraRect.height / scanResult.height;
+
+        const minX = Math.min(...points.map((pt) => pt.x)) * scaleX;
+        const minY = Math.min(...points.map((pt) => pt.y)) * scaleY;
+        const maxX = Math.max(...points.map((pt) => pt.x)) * scaleX;
+        const maxY = Math.max(...points.map((pt) => pt.y)) * scaleY;
+
+        setCodeRect({
+          x: minX,
+          y: minY,
+          width: maxX - minX,
+          height: maxY - minY,
+        });
+      } else {
+        setCodeRect(null);
+      }
+    },
+    [cameraRect]
+  );
+
+  const frameProcessor = useFrameProcessor(
+    (frame) => {
+      'worklet';
+      const value = scanBarCodes(frame, []);
+
+      if (value) {
+        if (value.code) {
+          runOnJS(onScanBarCode)(value);
+        }
+      }
+    },
+    [onScanBarCode]
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       {cameraDevice && hasCameraPermission ? (
@@ -65,7 +110,24 @@ const App: React.FC = () => {
           style={[styles.camera]}
           device={cameraDevice}
           isActive={true}
-        />
+          onLayout={({ nativeEvent: { layout } }) => {
+            setCameraRect(layout);
+          }}
+        >
+          {codeRect && (
+            <View
+              style={{
+                position: 'absolute',
+                borderWidth: 2,
+                borderColor: 'red',
+                left: codeRect.x,
+                top: codeRect.y,
+                width: codeRect.width,
+                height: codeRect.height,
+              }}
+            />
+          )}
+        </Camera>
       ) : null}
       <StatusBar barStyle="default" />
     </SafeAreaView>

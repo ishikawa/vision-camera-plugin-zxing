@@ -1,11 +1,11 @@
 import type { Frame } from 'react-native-vision-camera';
 
-export type BaseCodePoint = {
+export type BarCodePoint = {
   x: number;
   y: number;
 };
 
-export type BaseCodeMetadata = {
+export type BarCodeMetadata = {
   /**
    * Unspecified, application-specific metadata. Maps to an unspecified
    * NSObject.
@@ -131,15 +131,17 @@ export type BarCodeFormat =
   /** UPC/EAN extension format. Not a stand-alone format. */
   | 'UPCEANExtension';
 
-export type BaseCode = {
+export type BarCode = {
+  text: string;
+  format: BarCodeFormat;
+  points: BarCodePoint[];
+  metadata: BarCodeMetadata;
+};
+
+export type ScanResult = {
   width: number;
   height: number;
-  code: {
-    text: string;
-    format: BarCodeFormat;
-    points: BaseCodePoint[] | null;
-    metadata: BaseCodeMetadata | null;
-  };
+  code?: BarCode;
 };
 
 /**
@@ -147,7 +149,8 @@ export type BaseCode = {
  *
  * @param frame Camera frame
  * @param types Array of barcode types to detect (for optimal performance, use less types)
- * @returns Detected barcodes from Zxing
+ * @returns Detected barcodes from Zxing. Returns `null` if there was unexpected error or
+ *          frame processor took too long to execute.
  */
 export function scanBarCodes(
   frame: Frame,
@@ -155,7 +158,7 @@ export function scanBarCodes(
   types: any[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options?: any
-): BaseCode | null {
+): ScanResult | null {
   'worklet';
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore

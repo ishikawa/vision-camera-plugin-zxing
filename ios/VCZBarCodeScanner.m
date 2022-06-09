@@ -184,8 +184,11 @@ createStringFromZXResultMetadataType(ZXResultMetadataType type) {
   }
 }
 
-static inline id convertZXResultPoint(ZXResultPoint *point) {
-  return @{@"x" : @(point.x), @"y" : @(point.y)};
+static inline id convertZXResultPoint(ZXResultPoint *point, BOOL isLandscape) {
+  return @{
+    @"x" : @(isLandscape ? point.y : point.x),
+    @"y" : @(isLandscape ? point.x : point.y)
+  };
 }
 
 // To Base64
@@ -212,9 +215,7 @@ static id convertZXByteArray(ZXByteArray *byteSegment) {
 
 // QRCode metadata value to React native value.
 static id convertMetadataValue(id value) {
-  if ([value isKindOfClass:[ZXResultPoint class]]) {
-    return convertZXResultPoint(value);
-  } else if ([value isKindOfClass:[ZXByteArray class]]) {
+  if ([value isKindOfClass:[ZXByteArray class]]) {
     return convertZXByteArray(value);
   } else if ([value isKindOfClass:[NSArray class]]) {
     NSMutableArray *newValues =
@@ -301,6 +302,10 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
 
 - (id)scan:(Frame *)frame args:(NSArray *)args {
   const UIImageOrientation orientation = frame.orientation;
+  const BOOL isLandscape = (orientation == UIImageOrientationLeft ||
+                            orientation == UIImageOrientationLeftMirrored ||
+                            orientation == UIImageOrientationRight ||
+                            orientation == UIImageOrientationRightMirrored);
 
   CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(frame.buffer);
   CGImageRef videoFrameImage = NULL;
@@ -309,9 +314,6 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
       errSecSuccess) {
     return [NSNull null];
   }
-
-  const size_t videoFrameImageWidth = CGImageGetWidth(videoFrameImage);
-  const size_t videoFrameImageHeight = CGImageGetHeight(videoFrameImage);
 
   // --- Correct CGImage to match the desired orientation.
   const CGFloat captureRotation =
@@ -323,6 +325,11 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
   // Rotate image if needed.
   CGImageRef rotatedImage =
       createRotatedImage(videoFrameImage, captureRotation);
+
+  const size_t imageWidth = isLandscape ? CGImageGetHeight(rotatedImage)
+                                        : CGImageGetWidth(rotatedImage);
+  const size_t imageHeight = isLandscape ? CGImageGetWidth(rotatedImage)
+                                         : CGImageGetHeight(rotatedImage);
 
   _nScanned++;
 
@@ -361,11 +368,9 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
 
     // We have to convert keys in resultMetadata to string due to
     // VisionCamera limitation.
-    NSMutableDictionary *meradata = nil;
+    NSMutableDictionary *meradata = [@{} mutableCopy];
 
     if (result.resultMetadata != nil) {
-      meradata = [@{} mutableCopy];
-
       for (id key in result.resultMetadata) {
         id value = result.resultMetadata[key];
         NSString *stringKey =
@@ -379,18 +384,16 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
     }
 
     // Convert points
-    NSMutableArray *points = nil;
+    NSMutableArray *points = [NSMutableArray arrayWithCapacity:4];
     if (result.resultPoints) {
-      points = [NSMutableArray arrayWithCapacity:4];
-
       for (ZXResultPoint *pt in result.resultPoints) {
-        [points addObject:convertZXResultPoint(pt)];
+        [points addObject:convertZXResultPoint(pt, isLandscape)];
       }
     }
 
     return @{
-      @"width" : @(videoFrameImageWidth),
-      @"height" : @(videoFrameImageHeight),
+      @"width" : @(imageWidth),
+      @"height" : @(imageHeight),
       @"code" : @{
         // raw text encoded by the barcode
         @"text" : result.text,
@@ -399,12 +402,12 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
         // points related to the barcode in the image. These are typically
         // points identifying finder patterns or the corners of the barcode. The
         // exact meaning is specific to the type of barcode that was decoded.
-        @"points" : points ? points : [NSNull null],
+        @"points" : points,
         // mapping ZXResultMetadataType keys to values. May be nil. This
         // contains
         // optional metadata about what was detected about the barcode, like
         // orientation.
-        @"metadata" : meradata ? meradata : [NSNull null],
+        @"metadata" : meradata,
       }
     };
 
@@ -419,6 +422,9 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
     }
   }
 
-  return [NSNull null];
+  return @{
+    @"width" : @(imageWidth),
+    @"height" : @(imageHeight),
+  };
 }
 @end
