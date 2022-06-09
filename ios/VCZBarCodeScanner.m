@@ -1,25 +1,6 @@
 #import "VCZBarCodeScanner.h"
-#import <Replaykit/Replaykit.h>
 #import <VideoToolbox/VideoToolbox.h>
 #import <ZXingObjC/ZXingObjC.h>
-
-static CGFloat
-rotationDegreesForUIImageOrientation(UIImageOrientation orientation) {
-  switch (orientation) {
-  case UIImageOrientationUp:
-  case UIImageOrientationUpMirrored:
-    return 0.0f;
-  case UIImageOrientationDown:
-  case UIImageOrientationDownMirrored:
-    return 180.0f;
-  case UIImageOrientationLeft:
-  case UIImageOrientationLeftMirrored:
-    return 90.0f;
-  case UIImageOrientationRight:
-  case UIImageOrientationRightMirrored:
-    return 270.0f;
-  }
-}
 
 // ZXingObjC/core/ZXBarcodeFormat.h
 static NSString *createStringFromZXBarcodeFormat(ZXBarcodeFormat format) {
@@ -185,11 +166,8 @@ createStringFromZXResultMetadataType(ZXResultMetadataType type) {
   }
 }
 
-static inline id convertZXResultPoint(ZXResultPoint *point, BOOL isLandscape) {
-  return @{
-    @"x" : @(isLandscape ? point.y : point.x),
-    @"y" : @(isLandscape ? point.x : point.y)
-  };
+static inline id convertZXResultPoint(ZXResultPoint *point) {
+  return @{@"x" : @(point.x), @"y" : @(point.y)};
 }
 
 // To Base64
@@ -231,49 +209,6 @@ static id convertMetadataValue(id value) {
 
   return value;
 }
-static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
-  if (degrees == 0.0f) {
-    CGImageRetain(original);
-    return original;
-  } else {
-    double radians = degrees * M_PI / 180;
-
-#if TARGET_OS_EMBEDDED || TARGET_IPHONE_SIMULATOR
-    radians = -1 * radians;
-#endif
-
-    size_t _width = CGImageGetWidth(original);
-    size_t _height = CGImageGetHeight(original);
-
-    CGRect imgRect = CGRectMake(0, 0, _width, _height);
-    CGAffineTransform __transform = CGAffineTransformMakeRotation(radians);
-    CGRect rotatedRect = CGRectApplyAffineTransform(imgRect, __transform);
-
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-    CGContextRef context = CGBitmapContextCreate(
-        NULL, rotatedRect.size.width, rotatedRect.size.height,
-        CGImageGetBitsPerComponent(original), 0, colorSpace,
-        kCGBitmapAlphaInfoMask & kCGImageAlphaPremultipliedFirst);
-    CGContextSetAllowsAntialiasing(context, FALSE);
-    CGContextSetInterpolationQuality(context, kCGInterpolationNone);
-    CGColorSpaceRelease(colorSpace);
-
-    CGContextTranslateCTM(context, +(rotatedRect.size.width / 2),
-                          +(rotatedRect.size.height / 2));
-    CGContextRotateCTM(context, radians);
-
-    CGContextDrawImage(context,
-                       CGRectMake(-imgRect.size.width / 2,
-                                  -imgRect.size.height / 2, imgRect.size.width,
-                                  imgRect.size.height),
-                       original);
-
-    CGImageRef rotatedImage = CGBitmapContextCreateImage(context);
-    CFRelease(context);
-
-    return rotatedImage;
-  }
-}
 
 @interface VCZBarCodeScanner ()
 
@@ -303,11 +238,6 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
 
 - (id)scan:(Frame *)frame args:(NSArray *)args {
   const UIImageOrientation orientation = frame.orientation;
-  const BOOL isLandscape = (orientation == UIImageOrientationLeft ||
-                            orientation == UIImageOrientationLeftMirrored ||
-                            orientation == UIImageOrientationRight ||
-                            orientation == UIImageOrientationRightMirrored);
-
   CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(frame.buffer);
   CGImageRef videoFrameImage = NULL;
 
@@ -316,21 +246,14 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
     return [NSNull null];
   }
 
-  // --- Correct CGImage to match the desired orientation.
-  const CGFloat captureRotation =
-      rotationDegreesForUIImageOrientation(orientation);
+  // We don't need to rotate an image manually.
+  // VTCreateCGImageFromCVPixelBuffer() function already rotated it for us.
 
   // TODO: If scanRect is set, crop the current image to include only the
   // desired rect
 
-  // Rotate image if needed.
-  CGImageRef rotatedImage =
-      createRotatedImage(videoFrameImage, captureRotation);
-
-  const size_t imageWidth = isLandscape ? CGImageGetHeight(rotatedImage)
-                                        : CGImageGetWidth(rotatedImage);
-  const size_t imageHeight = isLandscape ? CGImageGetWidth(rotatedImage)
-                                         : CGImageGetHeight(rotatedImage);
+  const size_t imageWidth = CGImageGetWidth(videoFrameImage);
+  const size_t imageHeight = CGImageGetHeight(videoFrameImage);
 
   _nScanned++;
 
@@ -356,7 +279,7 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
   */
 
   ZXCGImageLuminanceSource *source =
-      [[ZXCGImageLuminanceSource alloc] initWithCGImage:rotatedImage];
+      [[ZXCGImageLuminanceSource alloc] initWithCGImage:videoFrameImage];
   ZXHybridBinarizer *binarizer =
       [[ZXHybridBinarizer alloc] initWithSource:source];
   ZXBinaryBitmap *bitmap = [[ZXBinaryBitmap alloc] initWithBinarizer:binarizer];
@@ -365,7 +288,6 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
   ZXResult *result = [self.reader decodeWithState:bitmap error:&error];
 
   CGImageRelease(videoFrameImage);
-  CGImageRelease(rotatedImage);
 
   if (result) {
     // The barcode format, such as a QR code or UPC-A
@@ -392,7 +314,7 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
     NSMutableArray *points = [NSMutableArray arrayWithCapacity:4];
     if (result.resultPoints) {
       for (ZXResultPoint *pt in result.resultPoints) {
-        [points addObject:convertZXResultPoint(pt, isLandscape)];
+        [points addObject:convertZXResultPoint(pt)];
       }
     }
 
