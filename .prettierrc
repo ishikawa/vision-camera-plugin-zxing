@@ -4,5 +4,5 @@
   "bracketSameLine": true,
   "arrowParens": "always",
   "trailingComma": "es5",
-  "printWidth": 110
+  "printWidth": 100
 }
