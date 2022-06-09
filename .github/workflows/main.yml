@@ -1,6 +1,9 @@
 name: Continuous Integration
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -21,7 +24,7 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: ${{ matrix.node-version }}
-      - run: npm ci
-      - run: npx tsc
-      - run: npm run lint
-      - run: npm test
+      - run: yarn install
+      - run: yarn run typescript
+      - run: yarn run lint
+      - run: yarn test
