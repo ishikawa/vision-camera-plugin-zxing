@@ -12,6 +12,5 @@ export function scanBarCodes(frame: Frame, types: any[], options?: any): any[] {
   'worklet';
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  // eslint-disable-next-line no-undef
   return __scanBarCodes(frame, types, options);
 }

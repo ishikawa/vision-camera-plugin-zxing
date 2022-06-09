@@ -58,6 +58,7 @@ const App: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       {cameraDevice && hasCameraPermission ? (
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         <Camera
           frameProcessor={frameProcessor}
