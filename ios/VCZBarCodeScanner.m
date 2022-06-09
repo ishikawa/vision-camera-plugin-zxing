@@ -20,6 +20,79 @@ rotationDegreesForUIImageOrientation(UIImageOrientation orientation) {
   }
 }
 
+// ZXingObjC/core/ZXBarcodeFormat.h
+static NSString *createStringFromZXBarcodeFormat(ZXBarcodeFormat format) {
+  switch (format) {
+  /** Aztec 2D barcode format. */
+  case kBarcodeFormatAztec:
+    return @"Aztec";
+
+  /** CODABAR 1D format. */
+  case kBarcodeFormatCodabar:
+    return @"Codabar";
+
+  /** Code 39 1D format. */
+  case kBarcodeFormatCode39:
+    return @"Code39";
+
+  /** Code 93 1D format. */
+  case kBarcodeFormatCode93:
+    return @"Code93";
+
+  /** Code 128 1D format. */
+  case kBarcodeFormatCode128:
+    return @"Code128";
+
+  /** Data Matrix 2D barcode format. */
+  case kBarcodeFormatDataMatrix:
+    return @"DataMatrix";
+
+  /** EAN-8 1D format. */
+  case kBarcodeFormatEan8:
+    return @"Ean8";
+
+  /** EAN-13 1D format. */
+  case kBarcodeFormatEan13:
+    return @"Ean13";
+
+  /** ITF (Interleaved Two of Five) 1D format. */
+  case kBarcodeFormatITF:
+    return @"ITF";
+
+  /** MaxiCode 2D barcode format. */
+  case kBarcodeFormatMaxiCode:
+    return @"MaxiCode";
+
+  /** PDF417 format. */
+  case kBarcodeFormatPDF417:
+    return @"PDF417";
+
+  /** QR Code 2D barcode format. */
+  case kBarcodeFormatQRCode:
+    return @"QRCode";
+
+  /** RSS 14 */
+  case kBarcodeFormatRSS14:
+    return @"RSS14";
+
+  /** RSS EXPANDED */
+  case kBarcodeFormatRSSExpanded:
+    return @"RSSExpanded";
+
+  /** UPC-A 1D format. */
+  case kBarcodeFormatUPCA:
+    return @"UPCA";
+
+  /** UPC-E 1D format. */
+  case kBarcodeFormatUPCE:
+    return @"UPCE";
+
+  /** UPC/EAN extension format. Not a stand-alone format. */
+  case kBarcodeFormatUPCEANExtension:
+    return @"UPCEANExtension";
+  };
+}
+
 // ZXingObjC/core/ZXResultMetadataType.h
 static NSString *
 createStringFromZXResultMetadataType(ZXResultMetadataType type) {
@@ -29,7 +102,7 @@ createStringFromZXResultMetadataType(ZXResultMetadataType type) {
    * NSObject.
    */
   case kResultMetadataTypeOther:
-    return @"Other";
+    return @"other";
 
   /**
    * Denotes the likely approximate orientation of the barcode in the image.
@@ -39,7 +112,7 @@ createStringFromZXResultMetadataType(ZXResultMetadataType type) {
    * integer whose value is in the range [0,360).
    */
   case kResultMetadataTypeOrientation:
-    return @"Orientation";
+    return @"orientation";
 
   /**
    * 2D barcode formats typically encode text, but allow for a sort of 'byte
@@ -51,27 +124,27 @@ createStringFromZXResultMetadataType(ZXResultMetadataType type) {
    * raw bytes in the byte segments in the barcode, in order.
    */
   case kResultMetadataTypeByteSegments:
-    return @"ByteSegments";
+    return @"byteSegments";
 
   /**
    * Error correction level used, if applicable. The value type depends on the
    * format, but is typically a String.
    */
   case kResultMetadataTypeErrorCorrectionLevel:
-    return @"ErrorCorrectionLevel";
+    return @"errorCorrectionLevel";
 
   /**
    * For some periodicals, indicates the issue number as an integer.
    */
   case kResultMetadataTypeIssueNumber:
-    return @"IssueNumber";
+    return @"issueNumber";
 
   /**
    * For some products, indicates the suggested retail price in the barcode as a
    * formatted NSString.
    */
   case kResultMetadataTypeSuggestedPrice:
-    return @"SuggestedPrice";
+    return @"suggestedPrice";
 
   /**
    * For some products, the possible country of manufacture as NSString denoting
@@ -79,7 +152,7 @@ createStringFromZXResultMetadataType(ZXResultMetadataType type) {
    * "US/CA".
    */
   case kResultMetadataTypePossibleCountry:
-    return @"PossibleCountry";
+    return @"possibleCountry";
 
   /**
    * For some products, the extension text
@@ -98,14 +171,14 @@ createStringFromZXResultMetadataType(ZXResultMetadataType type) {
    * is part of one then the sequence number is given with it.
    */
   case kResultMetadataTypeStructuredAppendSequence:
-    return @"StructuredAppendSequence";
+    return @"structuredAppendSequence";
 
     /**
      * If the code format supports structured append and the current scanned
      * code is part of one then the parity is given with it.
      */
   case kResultMetadataTypeStructuredAppendParity:
-    return @"StructuredAppendParity";
+    return @"structuredAppendParity";
   default:
     return [@(type) stringValue];
   }
@@ -234,8 +307,11 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
 
   if (VTCreateCGImageFromCVPixelBuffer(pixelBuffer, NULL, &videoFrameImage) !=
       errSecSuccess) {
-    return @[];
+    return [NSNull null];
   }
+
+  const size_t videoFrameImageWidth = CGImageGetWidth(videoFrameImage);
+  const size_t videoFrameImageHeight = CGImageGetHeight(videoFrameImage);
 
   // --- Correct CGImage to match the desired orientation.
   const CGFloat captureRotation =
@@ -297,11 +373,12 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
                 ? createStringFromZXResultMetadataType([key intValue])
                 : [key description];
 
-        NSLog(@"metadata: %@ = %@", stringKey, value);
+        // NSLog(@"metadata: %@ = %@", stringKey, value);
         meradata[stringKey] = convertMetadataValue(value);
       }
     }
 
+    // Convert points
     NSMutableArray *points = nil;
     if (result.resultPoints) {
       points = [NSMutableArray arrayWithCapacity:4];
@@ -311,32 +388,37 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
       }
     }
 
-    return @[ @{
-      // raw text encoded by the barcode
-      @"text" : result.text,
-      // representing the format of the barcode that was decoded
-      @"format" : @(format),
-      // points related to the barcode in the image. These are typically points
-      // identifying finder patterns or the corners of the barcode. The exact
-      // meaning is specific to the type of barcode that was decoded.
-      @"points" : points ? points : [NSNull null],
-      // mapping ZXResultMetadataType keys to values. May be nil. This contains
-      // optional metadata about what was detected about the barcode, like
-      // orientation.
-      @"metadata" : meradata ? meradata : [NSNull null],
-    } ];
+    return @{
+      @"width" : @(videoFrameImageWidth),
+      @"height" : @(videoFrameImageHeight),
+      @"code" : @{
+        // raw text encoded by the barcode
+        @"text" : result.text,
+        // representing the format of the barcode that was decoded
+        @"format" : createStringFromZXBarcodeFormat(format),
+        // points related to the barcode in the image. These are typically
+        // points identifying finder patterns or the corners of the barcode. The
+        // exact meaning is specific to the type of barcode that was decoded.
+        @"points" : points ? points : [NSNull null],
+        // mapping ZXResultMetadataType keys to values. May be nil. This
+        // contains
+        // optional metadata about what was detected about the barcode, like
+        // orientation.
+        @"metadata" : meradata ? meradata : [NSNull null],
+      }
+    };
 
   } else if (error != nil) {
+    // Use error to determine why we didn't get a result, such as a barcode
+    // not being found, an invalid checksum, or a format inconsistency.
     if ([error.domain isEqualToString:ZXErrorDomain] &&
         error.code == ZXNotFoundError) {
       // QR code not found
     } else {
-      // Use error to determine why we didn't get a result, such as a barcode
-      // not being found, an invalid checksum, or a format inconsistency.
       NSLog(@"Error = %@", error.description);
     }
   }
 
-  return @[];
+  return [NSNull null];
 }
 @end

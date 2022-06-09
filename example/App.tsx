@@ -17,8 +17,8 @@ const App: React.FC = () => {
     'worklet';
     const value = scanBarCodes(frame, []);
 
-    if (value.length > 0) {
-      console.log('value =', value[0]);
+    if (value) {
+      console.log('value =', value);
     }
   }, []);
 

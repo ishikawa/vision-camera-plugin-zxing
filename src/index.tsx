@@ -1,5 +1,147 @@
 import type { Frame } from 'react-native-vision-camera';
 
+export type BaseCodePoint = {
+  x: number;
+  y: number;
+};
+
+export type BaseCodeMetadata = {
+  /**
+   * Unspecified, application-specific metadata. Maps to an unspecified
+   * NSObject.
+   */
+  other?: unknown;
+
+  /**
+   * Denotes the likely approximate orientation of the barcode in the image.
+   * This value is given as degrees rotated clockwise from the normal, upright
+   * orientation. For example a 1D barcode which was found by reading
+   * top-to-bottom would be said to have orientation "90". This key maps to an
+   * integer whose value is in the range [0,360).
+   */
+  orientation?: unknown;
+
+  /**
+   * 2D barcode formats typically encode text, but allow for a sort of 'byte
+   * mode' which is sometimes used to encode binary data. While ZXResult makes
+   * available the complete raw bytes in the barcode for these formats, it does
+   * not offer the bytes from the byte segments alone.
+   *
+   * This maps to an array of byte arrays corresponding to the
+   * raw bytes in the byte segments in the barcode, in order.
+   */
+  byteSegments?: number[];
+
+  /**
+   * Error correction level used, if applicable. The value type depends on the
+   * format, but is typically a String.
+   */
+  errorCorrectionLevel?: unknown;
+
+  /**
+   * For some periodicals, indicates the issue number as an integer.
+   */
+  issueNumber?: number;
+
+  /**
+   * For some products, indicates the suggested retail price in the barcode as a
+   * formatted NSString.
+   */
+  suggestedPrice?: string;
+
+  /**
+   * For some products, the possible country of manufacture as NSString denoting
+   * the ISO country code. Some map to multiple possible countries, like
+   * "US/CA".
+   */
+  possibleCountry?: string;
+
+  /**
+   * For some products, the extension text
+   */
+  UPCEANExtension?: string;
+
+  /**
+   * PDF417-specific metadata
+   */
+  PDF417ExtraMetadata?: unknown;
+
+  /**
+   * If the code format supports structured append and the current scanned code
+   * is part of one then the sequence number is given with it.
+   */
+  structuredAppendSequence: unknown;
+
+  /**
+   * If the code format supports structured append and the current scanned
+   * code is part of one then the parity is given with it.
+   */
+  structuredAppendParity: unknown;
+};
+
+export type BarCodeFormat =
+  /** Aztec 2D barcode format. */
+  | 'Aztec'
+
+  /** CODABAR 1D format. */
+  | 'Codabar'
+
+  /** Code 39 1D format. */
+  | 'Code39'
+
+  /** Code 93 1D format. */
+  | 'Code93'
+
+  /** Code 128 1D format. */
+  | 'Code128'
+
+  /** Data Matrix 2D barcode format. */
+  | 'DataMatrix'
+
+  /** EAN-8 1D format. */
+  | 'Ean8'
+
+  /** EAN-13 1D format. */
+  | 'Ean13'
+
+  /** ITF (Interleaved Two of Five) 1D format. */
+  | 'ITF'
+
+  /** MaxiCode 2D barcode format. */
+  | 'MaxiCode'
+
+  /** PDF417 format. */
+  | 'PDF417'
+
+  /** QR Code 2D barcode format. */
+  | 'QRCode'
+
+  /** RSS 14 */
+  | 'RSS14'
+
+  /** RSS EXPANDED */
+  | 'RSSExpanded'
+
+  /** UPC-A 1D format. */
+  | 'UPCA'
+
+  /** UPC-E 1D format. */
+  | 'UPCE'
+
+  /** UPC/EAN extension format. Not a stand-alone format. */
+  | 'UPCEANExtension';
+
+export type BaseCode = {
+  width: number;
+  height: number;
+  code: {
+    text: string;
+    format: BarCodeFormat;
+    points: BaseCodePoint[] | null;
+    metadata: BaseCodeMetadata | null;
+  };
+};
+
 /**
  * Scans barcodes in the passed frame with Zxing
  *
@@ -7,8 +149,13 @@ import type { Frame } from 'react-native-vision-camera';
  * @param types Array of barcode types to detect (for optimal performance, use less types)
  * @returns Detected barcodes from Zxing
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function scanBarCodes(frame: Frame, types: any[], options?: any): any[] {
+export function scanBarCodes(
+  frame: Frame,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  types: any[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  options?: any
+): BaseCode | null {
   'worklet';
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
