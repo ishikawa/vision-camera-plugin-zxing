@@ -142,6 +142,9 @@ export type ScanResult = {
   width: number;
   height: number;
   code?: BarCode;
+
+  // DEBUG purpose only.
+  base64JPEG?: string;
 };
 
 /**

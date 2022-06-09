@@ -92,6 +92,9 @@ const App: React.FC = () => {
       const value = scanBarCodes(frame, []);
 
       if (value) {
+        if (value.base64JPEG) {
+          console.log(value);
+        }
         if (value.code) {
           runOnJS(onScanBarCode)(value);
         }

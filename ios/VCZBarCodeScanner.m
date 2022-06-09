@@ -1,4 +1,5 @@
 #import "VCZBarCodeScanner.h"
+#import <Replaykit/Replaykit.h>
 #import <VideoToolbox/VideoToolbox.h>
 #import <ZXingObjC/ZXingObjC.h>
 
@@ -333,20 +334,24 @@ static CGImageRef createRotatedImage(CGImageRef original, CGFloat degrees) {
 
   _nScanned++;
 
-  // DEBUG: Get JPEG representation for debug.
   /*
-  if (nScanned % 30 == 0) {
-    UIImage *img = [UIImage imageWithCGImage:rotatedImage
-                                       scale:1.0f
-                                 orientation:orientation];
-    NSData *bitmapRep = UIImageJPEGRepresentation(img, 0.3f);
+  // DEBUG: Get JPEG representation for debug.
+  if (_nScanned % 30 == 0) {
+    CGImageRef targetImage = rotatedImage;
+    // CGImageRef targetImage = videoFrameImage;
+
+    // UIImage *img = [UIImage imageWithCGImage:rotatedImage
+    //                                    scale:1.0f
+    //                              orientation:orientation];
+    UIImage *img = [UIImage imageWithCGImage:targetImage];
+    NSData *bitmapRep = UIImageJPEGRepresentation(img, 0.6f);
     NSString *base64JPEG = [bitmapRep base64EncodedStringWithOptions:0];
 
-    return @[ @{
-      @"orientation" : @(orientation),
-      @"captureRotation" : @(captureRotation),
+    return @{
+      @"width" : @(CGImageGetWidth(targetImage)),
+      @"height" : @(CGImageGetHeight(targetImage)),
       @"base64JPEG" : base64JPEG
-    } ];
+    };
   }
   */
 
