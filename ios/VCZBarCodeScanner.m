@@ -1,4 +1,4 @@
-#import "VCZBarCodeScanner.h"
+#import "VCZBarcodeScanner.h"
 #import <VideoToolbox/VideoToolbox.h>
 #import <ZXingObjC/ZXingObjC.h>
 
@@ -210,7 +210,7 @@ static id convertMetadataValue(id value) {
   return value;
 }
 
-@interface VCZBarCodeScanner ()
+@interface VCZBarcodeScanner ()
 
 @property(nonatomic, readonly) ZXMultiFormatReader *reader;
 
@@ -218,7 +218,7 @@ static id convertMetadataValue(id value) {
 
 @end
 
-@implementation VCZBarCodeScanner
+@implementation VCZBarcodeScanner
 
 - (instancetype)init {
   if (self = [super init]) {

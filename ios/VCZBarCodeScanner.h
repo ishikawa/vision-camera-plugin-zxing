@@ -3,7 +3,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface VCZBarCodeScanner : NSObject
+@interface VCZBarcodeScanner : NSObject
 
 - (id)scan:(Frame *)frame args:(NSArray *)args;
 

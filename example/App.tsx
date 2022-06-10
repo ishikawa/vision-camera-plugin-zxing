@@ -19,7 +19,7 @@ import Animated, {
   withTiming,
   useSharedValue,
 } from 'react-native-reanimated';
-import { scanBarCodes, ScanResult } from 'vision-camera-plugin-zxing';
+import { detectBarcodes, DetectionResult } from 'vision-camera-plugin-zxing';
 
 const App: React.FC = () => {
   const cameraDevices = useCameraDevices();
@@ -28,7 +28,7 @@ const App: React.FC = () => {
 
   // Animation values
   const cameraRect = useSharedValue<LayoutRectangle | null>(null);
-  const scanResult = useSharedValue<ScanResult | null>(null);
+  const scanResult = useSharedValue<DetectionResult | null>(null);
 
   // Camera permission
   useEffect(() => {
@@ -104,7 +104,7 @@ const App: React.FC = () => {
 
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet';
-    const value = scanBarCodes(frame, []);
+    const value = detectBarcodes(frame, []);
 
     if (value) {
       if (value.base64JPEG) {
