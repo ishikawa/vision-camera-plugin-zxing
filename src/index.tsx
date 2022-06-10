@@ -134,15 +134,17 @@ export type BarcodeFormat =
 export type Barcode = {
   text: string;
   format: BarcodeFormat;
-  points: BarcodePoint[];
+  // points related to the barcode in the image. These are typically
+  // points identifying finder patterns or the corners of the barcode. The
+  // exact meaning is specific to the type of barcode that was decoded.
+  cornerPoints: BarcodePoint[];
   metadata: BarcodeMetadata;
 };
 
 export type DetectionResult = {
+  barcodes: Barcode[];
   width: number;
   height: number;
-  code?: Barcode;
-
   // DEBUG purpose only.
   base64JPEG?: string;
 };

@@ -28,7 +28,7 @@ const App: React.FC = () => {
 
   // Animation values
   const cameraRect = useSharedValue<LayoutRectangle | null>(null);
-  const scanResult = useSharedValue<DetectionResult | null>(null);
+  const detectionResult = useSharedValue<DetectionResult | null>(null);
 
   // Camera permission
   useEffect(() => {
@@ -66,11 +66,15 @@ const App: React.FC = () => {
   // uses 'scanResult' to position the rectangle on screen.
   // smoothly updates on UI thread whenever 'scanResult' is changed
   const boxOverlayStyle: StyleProp<ViewStyle> = useAnimatedStyle(() => {
-    if (cameraRect.value && scanResult.value?.code?.points.length === 4) {
-      const points = scanResult.value.code.points;
+    if (
+      cameraRect.value &&
+      detectionResult.value?.barcodes[0] &&
+      detectionResult.value?.barcodes[0].cornerPoints.length === 4
+    ) {
+      const points = detectionResult.value.barcodes[0].cornerPoints;
 
-      const scaleX = cameraRect.value.width / scanResult.value.width;
-      const scaleY = cameraRect.value.height / scanResult.value.height;
+      const scaleX = cameraRect.value.width / detectionResult.value.width;
+      const scaleY = cameraRect.value.height / detectionResult.value.height;
 
       const minX = Math.min(...points.map((pt) => pt.x)) * scaleX;
       const minY = Math.min(...points.map((pt) => pt.y)) * scaleY;
@@ -110,8 +114,8 @@ const App: React.FC = () => {
       if (value.base64JPEG) {
         console.log(value);
       }
-      if (value.code) {
-        scanResult.value = value;
+      if (value.barcodes.length > 0) {
+        detectionResult.value = value;
       }
     }
   }, []);
