@@ -1,11 +1,11 @@
 import type { Frame } from 'react-native-vision-camera';
 
-export type BarCodePoint = {
+export type BarcodePoint = {
   x: number;
   y: number;
 };
 
-export type BarCodeMetadata = {
+export type BarcodeMetadata = {
   /**
    * Unspecified, application-specific metadata. Maps to an unspecified
    * NSObject.
@@ -79,7 +79,7 @@ export type BarCodeMetadata = {
   structuredAppendParity: unknown;
 };
 
-export type BarCodeFormat =
+export type BarcodeFormat =
   /** Aztec 2D barcode format. */
   | 'Aztec'
 
@@ -131,18 +131,20 @@ export type BarCodeFormat =
   /** UPC/EAN extension format. Not a stand-alone format. */
   | 'UPCEANExtension';
 
-export type BarCode = {
+export type Barcode = {
   text: string;
-  format: BarCodeFormat;
-  points: BarCodePoint[];
-  metadata: BarCodeMetadata;
+  format: BarcodeFormat;
+  // points related to the barcode in the image. These are typically
+  // points identifying finder patterns or the corners of the barcode. The
+  // exact meaning is specific to the type of barcode that was decoded.
+  cornerPoints: BarcodePoint[];
+  metadata: BarcodeMetadata;
 };
 
-export type ScanResult = {
+export type DetectionResult = {
+  barcodes: Barcode[];
   width: number;
   height: number;
-  code?: BarCode;
-
   // DEBUG purpose only.
   base64JPEG?: string;
 };
@@ -155,15 +157,15 @@ export type ScanResult = {
  * @returns Detected barcodes from Zxing. Returns `null` if there was unexpected error or
  *          frame processor took too long to execute.
  */
-export function scanBarCodes(
+export function detectBarcodes(
   frame: Frame,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   types: any[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options?: any
-): ScanResult | null {
+): DetectionResult | null {
   'worklet';
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  return __scanBarCodes(frame, types, options);
+  return __detectBarcodes(frame, types, options);
 }

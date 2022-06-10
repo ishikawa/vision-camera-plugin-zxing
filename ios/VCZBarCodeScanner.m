@@ -1,4 +1,4 @@
-#import "VCZBarCodeScanner.h"
+#import "VCZBarcodeScanner.h"
 #import <VideoToolbox/VideoToolbox.h>
 #import <ZXingObjC/ZXingObjC.h>
 
@@ -210,7 +210,7 @@ static id convertMetadataValue(id value) {
   return value;
 }
 
-@interface VCZBarCodeScanner ()
+@interface VCZBarcodeScanner ()
 
 @property(nonatomic, readonly) ZXMultiFormatReader *reader;
 
@@ -218,7 +218,7 @@ static id convertMetadataValue(id value) {
 
 @end
 
-@implementation VCZBarCodeScanner
+@implementation VCZBarcodeScanner
 
 - (instancetype)init {
   if (self = [super init]) {
@@ -236,7 +236,7 @@ static id convertMetadataValue(id value) {
   return self;
 }
 
-- (id)scan:(Frame *)frame args:(NSArray *)args {
+- (id)detect:(Frame *)frame args:(NSArray *)args {
   const UIImageOrientation orientation = frame.orientation;
   CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(frame.buffer);
   CGImageRef videoFrameImage = NULL;
@@ -321,7 +321,7 @@ static id convertMetadataValue(id value) {
     return @{
       @"width" : @(imageWidth),
       @"height" : @(imageHeight),
-      @"code" : @{
+      @"barcodes" : @[ @{
         // raw text encoded by the barcode
         @"text" : result.text,
         // representing the format of the barcode that was decoded
@@ -329,13 +329,13 @@ static id convertMetadataValue(id value) {
         // points related to the barcode in the image. These are typically
         // points identifying finder patterns or the corners of the barcode. The
         // exact meaning is specific to the type of barcode that was decoded.
-        @"points" : points,
+        @"cornerPoints" : points,
         // mapping ZXResultMetadataType keys to values. May be nil. This
         // contains
         // optional metadata about what was detected about the barcode, like
         // orientation.
         @"metadata" : meradata,
-      }
+      } ]
     };
 
   } else if (error != nil) {
@@ -352,6 +352,7 @@ static id convertMetadataValue(id value) {
   return @{
     @"width" : @(imageWidth),
     @"height" : @(imageHeight),
+    @"barcodes" : @[],
   };
 }
 @end
