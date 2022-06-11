@@ -170,26 +170,16 @@ static inline id convertZXResultPoint(ZXResultPoint *point) {
   return @{@"x" : @(point.x), @"y" : @(point.y)};
 }
 
-// To Base64
 /**
  * Converts a `ZXByteArray` object to React Native compatible object.
- *
- * This function converts a `ZXByteArray` object to an array containing
- * integers.
+ * This function encodes a `ZXByteArray` object to base64 string.
  */
 static id convertZXByteArray(ZXByteArray *byteSegment) {
-  // Basically, most application converts raw bytes into base64 string,
-  // but we converts it to an array containing integers.
-  // We chose this approach because a byte segment is relatively small
-  // in the most cases.
-  NSMutableArray *bytes =
-      [[NSMutableArray alloc] initWithCapacity:byteSegment.length];
-
-  for (int i = 0; i < byteSegment.length; i++) {
-    [bytes addObject:@(byteSegment.array[i])];
-  }
-
-  return bytes;
+  // An element of byteSegments can be too large to represent as
+  // JS number array, so we encode it to base64 string.
+  NSData *data = [NSData dataWithBytes:byteSegment.array
+                                length:byteSegment.length];
+  return [data base64EncodedStringWithOptions:0];
 }
 
 // QRCode metadata value to React native value.
@@ -307,6 +297,23 @@ static id convertMetadataValue(id value) {
 
         // NSLog(@"metadata: %@ = %@", stringKey, value);
         meradata[stringKey] = convertMetadataValue(value);
+      }
+
+      // QRCode: Structured append
+      NSNumber *saSeq =
+          result.resultMetadata[@(kResultMetadataTypeStructuredAppendSequence)];
+      if (saSeq != nil) {
+        const uint8_t seq = [saSeq unsignedCharValue];
+
+        // +--------------------+-------------------+-------------------+
+        // | mode (4bits = 0x3) | seq index (4bits) | seq total (4bits) |
+        // +--------------------+-------------------+-------------------+
+
+        const int index = seq >> 4;
+        const int total = (seq & 0x0f) + 1;
+
+        meradata[@"structuredAppendIndex"] = @(index);
+        meradata[@"structuredAppendTotal"] = @(total);
       }
     }
 

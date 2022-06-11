@@ -29,8 +29,10 @@ export type BarcodeMetadata = {
    *
    * This maps to an array of byte arrays corresponding to the
    * raw bytes in the byte segments in the barcode, in order.
+   *
+   * byteSegments is an array of base64 encoded string.
    */
-  byteSegments?: number[];
+  byteSegments?: string[];
 
   /**
    * Error correction level used, if applicable. The value type depends on the
@@ -70,13 +72,25 @@ export type BarcodeMetadata = {
    * If the code format supports structured append and the current scanned code
    * is part of one then the sequence number is given with it.
    */
-  structuredAppendSequence: unknown;
+  structuredAppendSequence?: number;
 
   /**
    * If the code format supports structured append and the current scanned
    * code is part of one then the parity is given with it.
    */
-  structuredAppendParity: unknown;
+  structuredAppendParity?: number;
+
+  /**
+   * If the code format supports structured append and the current scanned
+   * code is part of one then the index is given with it.
+   */
+  structuredAppendIndex?: number;
+
+  /**
+   * If the code format supports structured append and the current scanned
+   * code is part of one then the total number is given with it.
+   */
+  structuredAppendTotal?: number;
 };
 
 export type BarcodeFormat =

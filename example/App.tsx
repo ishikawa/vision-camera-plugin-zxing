@@ -91,6 +91,7 @@ const App: React.FC = () => {
       };
 
       return {
+        display: 'flex',
         position: 'absolute',
         borderWidth: 2,
         borderColor: 'red',
@@ -101,7 +102,7 @@ const App: React.FC = () => {
       };
     } else {
       return {
-        visibility: 'hidden',
+        display: 'none',
       };
     }
   });
@@ -111,12 +112,10 @@ const App: React.FC = () => {
     const value = detectBarcodes(frame, []);
 
     if (value) {
-      if (value.base64JPEG) {
+      if (value.base64JPEG || value.barcodes.length > 0) {
         console.log(value);
       }
-      if (value.barcodes.length > 0) {
-        detectionResult.value = value;
-      }
+      detectionResult.value = value;
     }
   }, []);
 
