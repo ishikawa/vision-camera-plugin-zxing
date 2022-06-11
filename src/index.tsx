@@ -29,8 +29,10 @@ export type BarcodeMetadata = {
    *
    * This maps to an array of byte arrays corresponding to the
    * raw bytes in the byte segments in the barcode, in order.
+   *
+   * byteSegments is an array of base64 encoded string.
    */
-  byteSegments?: number[];
+  byteSegments?: string[];
 
   /**
    * Error correction level used, if applicable. The value type depends on the
