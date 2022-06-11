@@ -221,13 +221,16 @@ static id convertMetadataValue(id value) {
     // the state set up by calling setHints() previously
     // Continuous scan clients will get a large speed increase by setting
     // the state previously.
-    _reader.hints = [ZXDecodeHints hints];
+    ZXDecodeHints *hints = [ZXDecodeHints hints];
+
+    [hints addPossibleFormat:kBarcodeFormatQRCode];
+
+    _reader.hints = hints;
   }
   return self;
 }
 
 - (id)detect:(Frame *)frame args:(NSArray *)args {
-  const UIImageOrientation orientation = frame.orientation;
   CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(frame.buffer);
   CGImageRef videoFrameImage = NULL;
 
