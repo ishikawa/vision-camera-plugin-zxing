@@ -298,6 +298,23 @@ static id convertMetadataValue(id value) {
         // NSLog(@"metadata: %@ = %@", stringKey, value);
         meradata[stringKey] = convertMetadataValue(value);
       }
+
+      // QRCode: Structured append
+      NSNumber *saSeq =
+          result.resultMetadata[@(kResultMetadataTypeStructuredAppendSequence)];
+      if (saSeq != nil) {
+        const uint8_t seq = [saSeq unsignedCharValue];
+
+        // +--------------------+-------------------+-------------------+
+        // | mode (4bits = 0x3) | seq index (4bits) | seq total (4bits) |
+        // +--------------------+-------------------+-------------------+
+
+        const int index = seq >> 4;
+        const int total = (seq & 0x0f) + 1;
+
+        meradata[@"structuredAppendIndex"] = @(index);
+        meradata[@"structuredAppendTotal"] = @(total);
+      }
     }
 
     // Convert points

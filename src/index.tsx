@@ -72,13 +72,25 @@ export type BarcodeMetadata = {
    * If the code format supports structured append and the current scanned code
    * is part of one then the sequence number is given with it.
    */
-  structuredAppendSequence: unknown;
+  structuredAppendSequence?: number;
 
   /**
    * If the code format supports structured append and the current scanned
    * code is part of one then the parity is given with it.
    */
-  structuredAppendParity: unknown;
+  structuredAppendParity?: number;
+
+  /**
+   * If the code format supports structured append and the current scanned
+   * code is part of one then the index is given with it.
+   */
+  structuredAppendIndex?: number;
+
+  /**
+   * If the code format supports structured append and the current scanned
+   * code is part of one then the total number is given with it.
+   */
+  structuredAppendTotal?: number;
 };
 
 export type BarcodeFormat =
