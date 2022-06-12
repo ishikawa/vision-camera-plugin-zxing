@@ -111,6 +111,7 @@ const App: React.FC = () => {
     'worklet';
     const value = detectBarcodes(frame, ['QRCode'], {
       readByQuadrant: true,
+      readMultiple: true,
     });
 
     if (value) {

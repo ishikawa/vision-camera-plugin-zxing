@@ -181,6 +181,13 @@ export type DetectionOptions = {
    * Default: `false`
    */
   readByQuadrant?: boolean;
+
+  /**
+   * Whether the scanner attempt to read several barcodes from one image.
+   *
+   * Default: `false`
+   */
+  readMultiple?: boolean;
 };
 
 /**

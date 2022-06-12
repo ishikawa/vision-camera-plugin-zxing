@@ -334,6 +334,7 @@ static id convertMetadataValue(id value) {
 
 + (id<ZXMultipleBarcodeReader>)
     createWrappedReaderWithDelegate:(id<ZXReader>)delegate
+                            formats:(NSArray<NSString *> *)formats
                             options:(NSDictionary *)options {
   id<ZXReader> reader = delegate;
 
@@ -342,7 +343,25 @@ static id convertMetadataValue(id value) {
     reader = [[ZXByQuadrantReader alloc] initWithDelegate:reader];
   }
 
-  return [[VCZMultipleBarcodeReader alloc] initWithReader:reader];
+  // readMultiple
+  if ([options[@"readMultiple"] boolValue]) {
+    // TODO If the decoding formats contain "QRCode" or "PDF417" only, we can
+    // use specific implementation.
+    // - ZXQRCodeMultiReader
+    // - ZXPDF417Reader
+    /*
+    if (formats.count == 1 && [formats[0] isEqualToString:@"QRCode"]) {
+
+    } else if (formats.count == 1 && [formats[0] isEqualToString:@"PDF417"]) {
+
+    } else {
+
+    }
+    */
+    return [[ZXGenericMultipleBarcodeReader alloc] initWithDelegate:reader];
+  } else {
+    return [[VCZMultipleBarcodeReader alloc] initWithReader:reader];
+  }
 }
 
 - (id)detect:(Frame *)frame
@@ -354,6 +373,7 @@ static id convertMetadataValue(id value) {
     _delegateReader = [[self class] createMultiFormatReaderWithFormats:formats
                                                                options:options];
     _reader = [[self class] createWrappedReaderWithDelegate:_delegateReader
+                                                    formats:formats
                                                     options:options];
   }
 
