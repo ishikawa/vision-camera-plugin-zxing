@@ -1,5 +1,4 @@
 #import <Foundation/Foundation.h>
-#import <VisionCamera/Frame.h>
 #import <ZXingObjC/ZXingObjC.h>
 
 NS_ASSUME_NONNULL_BEGIN

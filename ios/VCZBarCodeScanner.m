@@ -1,5 +1,6 @@
 #import "VCZBarcodeScanner.h"
 #import "VCZMultiFormatReader.h"
+#import "VCZMultipleBarcodeReader.h"
 #import <VideoToolbox/VideoToolbox.h>
 #import <ZXingObjC/ZXingObjC.h>
 
@@ -293,7 +294,7 @@ static id convertMetadataValue(id value) {
 
 @interface VCZBarcodeScanner ()
 
-@property(nonatomic, readonly) id<ZXReader> reader;
+@property(nonatomic, readonly) id<ZXMultipleBarcodeReader> reader;
 
 // We have to hold the reference to delegate
 @property(nonatomic, readonly) id<ZXReader> delegateReader;
@@ -331,8 +332,9 @@ static id convertMetadataValue(id value) {
   return [[VCZMultiFormatReader alloc] initWithReader:reader];
 }
 
-+ (id<ZXReader>)createWrappedReaderWithDelegate:(id<ZXReader>)delegate
-                                        options:(NSDictionary *)options {
++ (id<ZXMultipleBarcodeReader>)
+    createWrappedReaderWithDelegate:(id<ZXReader>)delegate
+                            options:(NSDictionary *)options {
   id<ZXReader> reader = delegate;
 
   // readByQuadrant
@@ -340,7 +342,7 @@ static id convertMetadataValue(id value) {
     reader = [[ZXByQuadrantReader alloc] initWithDelegate:reader];
   }
 
-  return reader;
+  return [[VCZMultipleBarcodeReader alloc] initWithReader:reader];
 }
 
 - (id)detect:(Frame *)frame
@@ -402,66 +404,69 @@ static id convertMetadataValue(id value) {
   ZXBinaryBitmap *bitmap = [[ZXBinaryBitmap alloc] initWithBinarizer:binarizer];
 
   NSError *error = nil;
-  ZXResult *result = [self.reader decode:bitmap error:&error];
+  NSArray<ZXResult *> *results = [self.reader decodeMultiple:bitmap
+                                                       error:&error];
 
   CGImageRelease(videoFrameImage);
 
-  if (result) {
-    // The barcode format, such as a QR code or UPC-A
-    const ZXBarcodeFormat format = result.barcodeFormat;
+  if (results != nil) {
+    NSMutableArray *barcodes = [NSMutableArray arrayWithCapacity:results.count];
 
-    // We have to convert keys in resultMetadata to string due to
-    // VisionCamera limitation.
-    NSMutableDictionary *meradata = [@{} mutableCopy];
+    for (ZXResult *result in results) {
+      // The barcode format, such as a QR code or UPC-A
+      const ZXBarcodeFormat format = result.barcodeFormat;
 
-    if (result.resultMetadata != nil) {
-      for (id key in result.resultMetadata) {
-        id value = result.resultMetadata[key];
-        NSString *stringKey =
-            [key isKindOfClass:[NSNumber class]]
-                ? createStringFromZXResultMetadataType([key intValue])
-                : [key description];
+      // We have to convert keys in resultMetadata to string due to
+      // VisionCamera limitation.
+      NSMutableDictionary *meradata = [@{} mutableCopy];
 
-        // NSLog(@"metadata: %@ = %@", stringKey, value);
-        meradata[stringKey] = convertMetadataValue(value);
+      if (result.resultMetadata != nil) {
+        for (id key in result.resultMetadata) {
+          id value = result.resultMetadata[key];
+          NSString *stringKey =
+              [key isKindOfClass:[NSNumber class]]
+                  ? createStringFromZXResultMetadataType([key intValue])
+                  : [key description];
+
+          // NSLog(@"metadata: %@ = %@", stringKey, value);
+          meradata[stringKey] = convertMetadataValue(value);
+        }
+
+        // QRCode: Structured append
+        NSNumber *saSeq =
+            result
+                .resultMetadata[@(kResultMetadataTypeStructuredAppendSequence)];
+        if (saSeq != nil) {
+          const uint8_t seq = [saSeq unsignedCharValue];
+
+          // +--------------------+-------------------+-------------------+
+          // | mode (4bits = 0x3) | seq index (4bits) | seq total (4bits) |
+          // +--------------------+-------------------+-------------------+
+
+          const int index = seq >> 4;
+          const int total = (seq & 0x0f) + 1;
+
+          meradata[@"structuredAppendIndex"] = @(index);
+          meradata[@"structuredAppendTotal"] = @(total);
+        }
       }
 
-      // QRCode: Structured append
-      NSNumber *saSeq =
-          result.resultMetadata[@(kResultMetadataTypeStructuredAppendSequence)];
-      if (saSeq != nil) {
-        const uint8_t seq = [saSeq unsignedCharValue];
-
-        // +--------------------+-------------------+-------------------+
-        // | mode (4bits = 0x3) | seq index (4bits) | seq total (4bits) |
-        // +--------------------+-------------------+-------------------+
-
-        const int index = seq >> 4;
-        const int total = (seq & 0x0f) + 1;
-
-        meradata[@"structuredAppendIndex"] = @(index);
-        meradata[@"structuredAppendTotal"] = @(total);
+      // Convert points
+      NSMutableArray *points = [NSMutableArray arrayWithCapacity:4];
+      if (result.resultPoints) {
+        for (ZXResultPoint *pt in result.resultPoints) {
+          [points addObject:convertZXResultPoint(pt)];
+        }
       }
-    }
 
-    // Convert points
-    NSMutableArray *points = [NSMutableArray arrayWithCapacity:4];
-    if (result.resultPoints) {
-      for (ZXResultPoint *pt in result.resultPoints) {
-        [points addObject:convertZXResultPoint(pt)];
-      }
-    }
-
-    return @{
-      @"width" : @(imageWidth),
-      @"height" : @(imageHeight),
-      @"barcodes" : @[ @{
+      [barcodes addObject:@{
         // raw text encoded by the barcode
         @"text" : result.text,
         // representing the format of the barcode that was decoded
         @"format" : createStringFromZXBarcodeFormat(format),
         // points related to the barcode in the image. These are typically
-        // points identifying finder patterns or the corners of the barcode. The
+        // points identifying finder patterns or the corners of the barcode.
+        // The
         // exact meaning is specific to the type of barcode that was decoded.
         @"cornerPoints" : points,
         // mapping ZXResultMetadataType keys to values. May be nil. This
@@ -469,9 +474,14 @@ static id convertMetadataValue(id value) {
         // optional metadata about what was detected about the barcode, like
         // orientation.
         @"metadata" : meradata,
-      } ]
-    };
+      }];
+    }
 
+    return @{
+      @"width" : @(imageWidth),
+      @"height" : @(imageHeight),
+      @"barcodes" : barcodes
+    };
   } else if (error != nil) {
     // Use error to determine why we didn't get a result, such as a barcode
     // not being found, an invalid checksum, or a format inconsistency.
