@@ -18,7 +18,12 @@ static VCZBarcodeScanner *barCodeScanner = nil;
   [FrameProcessorPluginRegistry
       addFrameProcessorPlugin:@"__detectBarcodes"
                      callback:^id(Frame *frame, NSArray<id> *args) {
-                       return [barCodeScanner detect:frame args:args];
+                       id formats = args.count >= 1 ? args[0] : @[];
+                       id options = args.count >= 2 ? args[1] : @{};
+
+                       return [barCodeScanner detect:frame
+                                             formats:formats
+                                             options:options];
                      }];
 }
 

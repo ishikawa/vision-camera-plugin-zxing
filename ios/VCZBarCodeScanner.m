@@ -1,8 +1,99 @@
 #import "VCZBarcodeScanner.h"
+#import "VCZMultiFormatReader.h"
 #import <VideoToolbox/VideoToolbox.h>
 #import <ZXingObjC/ZXingObjC.h>
 
 // ZXingObjC/core/ZXBarcodeFormat.h
+static ZXBarcodeFormat barcodeFormatFromString(NSString *format) {
+  /** Aztec 2D barcode format. */
+  if ([format isEqualToString:@"Aztec"]) {
+    return kBarcodeFormatAztec;
+  }
+
+  /** CODABAR 1D format. */
+  if ([format isEqualToString:@"Codabar"]) {
+    return kBarcodeFormatCodabar;
+  }
+
+  /** Code 39 1D format. */
+  if ([format isEqualToString:@"Code39"]) {
+    return kBarcodeFormatCode39;
+  }
+
+  /** Code 93 1D format. */
+  if ([format isEqualToString:@"Code93"]) {
+    return kBarcodeFormatCode93;
+  }
+
+  /** Code 128 1D format. */
+  if ([format isEqualToString:@"Code128"]) {
+    return kBarcodeFormatCode128;
+  }
+
+  /** Data Matrix 2D barcode format. */
+  if ([format isEqualToString:@"DataMatrix"]) {
+    return kBarcodeFormatDataMatrix;
+  }
+
+  /** EAN-8 1D format. */
+  if ([format isEqualToString:@"Ean8"]) {
+    return kBarcodeFormatEan8;
+  }
+
+  /** EAN-13 1D format. */
+  if ([format isEqualToString:@"Ean13"]) {
+    return kBarcodeFormatEan13;
+  }
+
+  /** ITF (Interleaved Two of Five) 1D format. */
+  if ([format isEqualToString:@"ITF"]) {
+    return kBarcodeFormatITF;
+  }
+
+  /** MaxiCode 2D barcode format. */
+  if ([format isEqualToString:@"MaxiCode"]) {
+    return kBarcodeFormatMaxiCode;
+  }
+
+  /** PDF417 format. */
+  if ([format isEqualToString:@"PDF417"]) {
+    return kBarcodeFormatPDF417;
+  }
+
+  /** QR Code 2D barcode format. */
+  if ([format isEqualToString:@"QRCode"]) {
+    return kBarcodeFormatQRCode;
+  }
+
+  /** RSS 14 */
+  if ([format isEqualToString:@"RSS14"]) {
+    return kBarcodeFormatRSS14;
+  }
+
+  /** RSS EXPANDED */
+  if ([format isEqualToString:@"RSSExpanded"]) {
+    return kBarcodeFormatRSSExpanded;
+  }
+
+  /** UPC-A 1D format. */
+  if ([format isEqualToString:@"UPCA"]) {
+    return kBarcodeFormatUPCA;
+  }
+
+  /** UPC-E 1D format. */
+  if ([format isEqualToString:@"UPCE"]) {
+    return kBarcodeFormatUPCE;
+  }
+
+  /** UPC/EAN extension format. Not a stand-alone format. */
+  if ([format isEqualToString:@"UPCEANExtension"]) {
+    return kBarcodeFormatUPCEANExtension;
+  }
+
+  // Unknown
+  return 0;
+};
+
 static NSString *createStringFromZXBarcodeFormat(ZXBarcodeFormat format) {
   switch (format) {
   /** Aztec 2D barcode format. */
@@ -202,7 +293,7 @@ static id convertMetadataValue(id value) {
 
 @interface VCZBarcodeScanner ()
 
-@property(nonatomic, readonly) ZXMultiFormatReader *reader;
+@property(nonatomic, readonly) id<ZXReader> reader;
 
 @property(nonatomic) NSUInteger nScanned;
 
@@ -210,27 +301,37 @@ static id convertMetadataValue(id value) {
 
 @implementation VCZBarcodeScanner
 
-- (instancetype)init {
-  if (self = [super init]) {
-    // TODO: Pass hints via arguments?
-    _reader = [ZXMultiFormatReader reader];
++ (id<ZXReader>)createReaderWithFormats:(NSArray<NSString *> *)formats
+                                options:(NSDictionary *)options {
+  ZXMultiFormatReader *reader = [ZXMultiFormatReader reader];
 
-    // There are a number of hints we can give to the reader, including
-    // possible formats, allowed lengths, and the string encoding.
-    //
-    // the state set up by calling setHints() previously
-    // Continuous scan clients will get a large speed increase by setting
-    // the state previously.
-    ZXDecodeHints *hints = [ZXDecodeHints hints];
+  // There are a number of hints we can give to the reader, including
+  // possible formats, allowed lengths, and the string encoding.
+  //
+  // the state set up by calling setHints() previously
+  // Continuous scan clients will get a large speed increase by setting
+  // the state previously.
+  ZXDecodeHints *hints = [ZXDecodeHints hints];
 
-    [hints addPossibleFormat:kBarcodeFormatQRCode];
-
-    _reader.hints = hints;
+  for (NSString *formatValue in formats) {
+    const ZXBarcodeFormat format = barcodeFormatFromString(formatValue);
+    [hints addPossibleFormat:format];
   }
-  return self;
+
+  reader.hints = hints;
+
+  return [[VCZMultiFormatReader alloc] initWithReader:reader];
 }
 
-- (id)detect:(Frame *)frame args:(NSArray *)args {
+- (id)detect:(Frame *)frame
+     formats:(NSArray<NSString *> *)formats
+     options:(NSDictionary *)options {
+  // This plugin initializes the barcode reader only the first time to
+  // maximize performance.
+  if (_reader == nil) {
+    _reader = [[self class] createReaderWithFormats:formats options:options];
+  }
+
   CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(frame.buffer);
   CGImageRef videoFrameImage = NULL;
 
@@ -278,7 +379,7 @@ static id convertMetadataValue(id value) {
   ZXBinaryBitmap *bitmap = [[ZXBinaryBitmap alloc] initWithBinarizer:binarizer];
 
   NSError *error = nil;
-  ZXResult *result = [self.reader decodeWithState:bitmap error:&error];
+  ZXResult *result = [self.reader decode:bitmap error:&error];
 
   CGImageRelease(videoFrameImage);
 

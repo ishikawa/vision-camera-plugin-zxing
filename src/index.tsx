@@ -163,23 +163,23 @@ export type DetectionResult = {
   base64JPEG?: string;
 };
 
+export type DetectionOptions = {};
+
 /**
  * Scans barcodes in the passed frame with Zxing
  *
  * @param frame Camera frame
- * @param types Array of barcode types to detect (for optimal performance, use less types)
+ * @param formats Array of barcode formats to detect (for optimal performance, use less types)
  * @returns Detected barcodes from Zxing. Returns `null` if there was unexpected error or
  *          frame processor took too long to execute.
  */
 export function detectBarcodes(
   frame: Frame,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  types: any[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  options?: any
+  formats: BarcodeFormat[],
+  options: DetectionOptions = {}
 ): DetectionResult | null {
   'worklet';
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  return __detectBarcodes(frame, types, options);
+  return __detectBarcodes(frame, formats, options);
 }
