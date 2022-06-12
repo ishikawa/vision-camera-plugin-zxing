@@ -295,32 +295,52 @@ static id convertMetadataValue(id value) {
 
 @property(nonatomic, readonly) id<ZXReader> reader;
 
+// We have to hold the reference to delegate
+@property(nonatomic, readonly) id<ZXReader> delegateReader;
+
 @property(nonatomic) NSUInteger nScanned;
 
 @end
 
 @implementation VCZBarcodeScanner
 
-+ (id<ZXReader>)createReaderWithFormats:(NSArray<NSString *> *)formats
-                                options:(NSDictionary *)options {
-  ZXMultiFormatReader *reader = [ZXMultiFormatReader reader];
-
++ (ZXDecodeHints *)hintsWithFormats:(NSArray<NSString *> *)formats
+                            options:(NSDictionary *)options {
   // There are a number of hints we can give to the reader, including
   // possible formats, allowed lengths, and the string encoding.
-  //
-  // the state set up by calling setHints() previously
-  // Continuous scan clients will get a large speed increase by setting
-  // the state previously.
+
   ZXDecodeHints *hints = [ZXDecodeHints hints];
 
+  // formats
   for (NSString *formatValue in formats) {
     const ZXBarcodeFormat format = barcodeFormatFromString(formatValue);
     [hints addPossibleFormat:format];
   }
 
-  reader.hints = hints;
+  // tryHarder
+  hints.tryHarder = [options[@"accurate"] boolValue];
 
+  return hints;
+}
+
++ (id<ZXReader>)createMultiFormatReaderWithFormats:
+                    (NSArray<NSString *> *)formats
+                                           options:(NSDictionary *)options {
+  ZXMultiFormatReader *reader = [ZXMultiFormatReader reader];
+  reader.hints = [self hintsWithFormats:formats options:options];
   return [[VCZMultiFormatReader alloc] initWithReader:reader];
+}
+
++ (id<ZXReader>)createWrappedReaderWithDelegate:(id<ZXReader>)delegate
+                                        options:(NSDictionary *)options {
+  id<ZXReader> reader = delegate;
+
+  // readByQuadrant
+  if ([options[@"readByQuadrant"] boolValue]) {
+    reader = [[ZXByQuadrantReader alloc] initWithDelegate:reader];
+  }
+
+  return reader;
 }
 
 - (id)detect:(Frame *)frame
@@ -329,7 +349,10 @@ static id convertMetadataValue(id value) {
   // This plugin initializes the barcode reader only the first time to
   // maximize performance.
   if (_reader == nil) {
-    _reader = [[self class] createReaderWithFormats:formats options:options];
+    _delegateReader = [[self class] createMultiFormatReaderWithFormats:formats
+                                                               options:options];
+    _reader = [[self class] createWrappedReaderWithDelegate:_delegateReader
+                                                    options:options];
   }
 
   CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(frame.buffer);

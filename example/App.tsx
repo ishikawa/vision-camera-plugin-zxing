@@ -109,7 +109,9 @@ const App: React.FC = () => {
 
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet';
-    const value = detectBarcodes(frame, ['QRCode']);
+    const value = detectBarcodes(frame, ['QRCode'], {
+      readByQuadrant: true,
+    });
 
     if (value) {
       if (value.base64JPEG || value.barcodes.length > 0) {
