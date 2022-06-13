@@ -4,6 +4,12 @@
 #import <VideoToolbox/VideoToolbox.h>
 #import <ZXingObjC/ZXingObjC.h>
 
+// If the decoding formats contain "QRCode" or "PDF417" only, we can
+// use specific implementation.
+// - ZXQRCodeMultiReader
+// - ZXPDF417Reader
+#define USE_BARCODE_SPECIFIC_MULTIPLE_READER 1
+
 // ZXingObjC/core/ZXBarcodeFormat.h
 static ZXBarcodeFormat barcodeFormatFromString(NSString *format) {
   /** Aztec 2D barcode format. */
@@ -296,6 +302,8 @@ static id convertMetadataValue(id value) {
 
 @property(nonatomic, readonly) id<ZXMultipleBarcodeReader> reader;
 
+@property(nonatomic, readonly) ZXDecodeHints *hints;
+
 // We have to hold the reference to delegate
 @property(nonatomic, readonly) id<ZXReader> delegateReader;
 
@@ -324,11 +332,9 @@ static id convertMetadataValue(id value) {
   return hints;
 }
 
-+ (id<ZXReader>)createMultiFormatReaderWithFormats:
-                    (NSArray<NSString *> *)formats
-                                           options:(NSDictionary *)options {
++ (id<ZXReader>)createMultiFormatReaderWithHints:(ZXDecodeHints *)hints {
   ZXMultiFormatReader *reader = [ZXMultiFormatReader reader];
-  reader.hints = [self hintsWithFormats:formats options:options];
+  reader.hints = hints;
   return [[VCZMultiFormatReader alloc] initWithReader:reader];
 }
 
@@ -345,19 +351,15 @@ static id convertMetadataValue(id value) {
 
   // readMultiple
   if ([options[@"readMultiple"] boolValue]) {
-    // TODO If the decoding formats contain "QRCode" or "PDF417" only, we can
-    // use specific implementation.
-    // - ZXQRCodeMultiReader
-    // - ZXPDF417Reader
-    /*
+
+#if USE_BARCODE_SPECIFIC_MULTIPLE_READER
     if (formats.count == 1 && [formats[0] isEqualToString:@"QRCode"]) {
-
+      return [[ZXQRCodeMultiReader alloc] init];
     } else if (formats.count == 1 && [formats[0] isEqualToString:@"PDF417"]) {
-
-    } else {
-
+      return [[ZXPDF417Reader alloc] init];
     }
-    */
+#endif
+
     return [[ZXGenericMultipleBarcodeReader alloc] initWithDelegate:reader];
   } else {
     return [[VCZMultipleBarcodeReader alloc] initWithReader:reader];
@@ -370,8 +372,8 @@ static id convertMetadataValue(id value) {
   // This plugin initializes the barcode reader only the first time to
   // maximize performance.
   if (_reader == nil) {
-    _delegateReader = [[self class] createMultiFormatReaderWithFormats:formats
-                                                               options:options];
+    _hints = [[self class] hintsWithFormats:formats options:options];
+    _delegateReader = [[self class] createMultiFormatReaderWithHints:_hints];
     _reader = [[self class] createWrappedReaderWithDelegate:_delegateReader
                                                     formats:formats
                                                     options:options];
@@ -425,6 +427,7 @@ static id convertMetadataValue(id value) {
 
   NSError *error = nil;
   NSArray<ZXResult *> *results = [self.reader decodeMultiple:bitmap
+                                                       hints:self.hints
                                                        error:&error];
 
   CGImageRelease(videoFrameImage);
