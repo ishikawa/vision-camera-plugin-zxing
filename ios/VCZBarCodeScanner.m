@@ -1,8 +1,106 @@
 #import "VCZBarcodeScanner.h"
+#import "VCZMultiFormatReader.h"
+#import "VCZMultipleBarcodeReader.h"
 #import <VideoToolbox/VideoToolbox.h>
 #import <ZXingObjC/ZXingObjC.h>
 
+// If the decoding formats contain "QRCode" or "PDF417" only, we can
+// use specific implementation.
+// - ZXQRCodeMultiReader
+// - ZXPDF417Reader
+#define USE_BARCODE_SPECIFIC_MULTIPLE_READER 1
+
 // ZXingObjC/core/ZXBarcodeFormat.h
+static ZXBarcodeFormat barcodeFormatFromString(NSString *format) {
+  /** Aztec 2D barcode format. */
+  if ([format isEqualToString:@"Aztec"]) {
+    return kBarcodeFormatAztec;
+  }
+
+  /** CODABAR 1D format. */
+  if ([format isEqualToString:@"Codabar"]) {
+    return kBarcodeFormatCodabar;
+  }
+
+  /** Code 39 1D format. */
+  if ([format isEqualToString:@"Code39"]) {
+    return kBarcodeFormatCode39;
+  }
+
+  /** Code 93 1D format. */
+  if ([format isEqualToString:@"Code93"]) {
+    return kBarcodeFormatCode93;
+  }
+
+  /** Code 128 1D format. */
+  if ([format isEqualToString:@"Code128"]) {
+    return kBarcodeFormatCode128;
+  }
+
+  /** Data Matrix 2D barcode format. */
+  if ([format isEqualToString:@"DataMatrix"]) {
+    return kBarcodeFormatDataMatrix;
+  }
+
+  /** EAN-8 1D format. */
+  if ([format isEqualToString:@"Ean8"]) {
+    return kBarcodeFormatEan8;
+  }
+
+  /** EAN-13 1D format. */
+  if ([format isEqualToString:@"Ean13"]) {
+    return kBarcodeFormatEan13;
+  }
+
+  /** ITF (Interleaved Two of Five) 1D format. */
+  if ([format isEqualToString:@"ITF"]) {
+    return kBarcodeFormatITF;
+  }
+
+  /** MaxiCode 2D barcode format. */
+  if ([format isEqualToString:@"MaxiCode"]) {
+    return kBarcodeFormatMaxiCode;
+  }
+
+  /** PDF417 format. */
+  if ([format isEqualToString:@"PDF417"]) {
+    return kBarcodeFormatPDF417;
+  }
+
+  /** QR Code 2D barcode format. */
+  if ([format isEqualToString:@"QRCode"]) {
+    return kBarcodeFormatQRCode;
+  }
+
+  /** RSS 14 */
+  if ([format isEqualToString:@"RSS14"]) {
+    return kBarcodeFormatRSS14;
+  }
+
+  /** RSS EXPANDED */
+  if ([format isEqualToString:@"RSSExpanded"]) {
+    return kBarcodeFormatRSSExpanded;
+  }
+
+  /** UPC-A 1D format. */
+  if ([format isEqualToString:@"UPCA"]) {
+    return kBarcodeFormatUPCA;
+  }
+
+  /** UPC-E 1D format. */
+  if ([format isEqualToString:@"UPCE"]) {
+    return kBarcodeFormatUPCE;
+  }
+
+  /** UPC/EAN extension format. Not a stand-alone format. */
+  if ([format isEqualToString:@"UPCEANExtension"]) {
+    return kBarcodeFormatUPCEANExtension;
+  }
+
+  // Unknown
+  return 0;
+};
+
 static NSString *createStringFromZXBarcodeFormat(ZXBarcodeFormat format) {
   switch (format) {
   /** Aztec 2D barcode format. */
@@ -202,7 +300,12 @@ static id convertMetadataValue(id value) {
 
 @interface VCZBarcodeScanner ()
 
-@property(nonatomic, readonly) ZXMultiFormatReader *reader;
+@property(nonatomic, readonly) id<ZXMultipleBarcodeReader> reader;
+
+@property(nonatomic, readonly) ZXDecodeHints *hints;
+
+// We have to hold the reference to delegate
+@property(nonatomic, readonly) id<ZXReader> delegateReader;
 
 @property(nonatomic) NSUInteger nScanned;
 
@@ -210,24 +313,72 @@ static id convertMetadataValue(id value) {
 
 @implementation VCZBarcodeScanner
 
-- (instancetype)init {
-  if (self = [super init]) {
-    // TODO: Pass hints via arguments?
-    _reader = [ZXMultiFormatReader reader];
++ (ZXDecodeHints *)hintsWithFormats:(NSArray<NSString *> *)formats
+                            options:(NSDictionary *)options {
+  // There are a number of hints we can give to the reader, including
+  // possible formats, allowed lengths, and the string encoding.
 
-    // There are a number of hints we can give to the reader, including
-    // possible formats, allowed lengths, and the string encoding.
-    //
-    // the state set up by calling setHints() previously
-    // Continuous scan clients will get a large speed increase by setting
-    // the state previously.
-    _reader.hints = [ZXDecodeHints hints];
+  ZXDecodeHints *hints = [ZXDecodeHints hints];
+
+  // formats
+  for (NSString *formatValue in formats) {
+    const ZXBarcodeFormat format = barcodeFormatFromString(formatValue);
+    [hints addPossibleFormat:format];
   }
-  return self;
+
+  // tryHarder
+  hints.tryHarder = [options[@"accurate"] boolValue];
+
+  return hints;
 }
 
-- (id)detect:(Frame *)frame args:(NSArray *)args {
-  const UIImageOrientation orientation = frame.orientation;
++ (id<ZXReader>)createMultiFormatReaderWithHints:(ZXDecodeHints *)hints {
+  ZXMultiFormatReader *reader = [ZXMultiFormatReader reader];
+  reader.hints = hints;
+  return [[VCZMultiFormatReader alloc] initWithReader:reader];
+}
+
++ (id<ZXMultipleBarcodeReader>)
+    createWrappedReaderWithDelegate:(id<ZXReader>)delegate
+                            formats:(NSArray<NSString *> *)formats
+                            options:(NSDictionary *)options {
+  id<ZXReader> reader = delegate;
+
+  // readByQuadrant
+  if ([options[@"readByQuadrant"] boolValue]) {
+    reader = [[ZXByQuadrantReader alloc] initWithDelegate:reader];
+  }
+
+  // readMultiple
+  if ([options[@"readMultiple"] boolValue]) {
+
+#if USE_BARCODE_SPECIFIC_MULTIPLE_READER
+    if (formats.count == 1 && [formats[0] isEqualToString:@"QRCode"]) {
+      return [[ZXQRCodeMultiReader alloc] init];
+    } else if (formats.count == 1 && [formats[0] isEqualToString:@"PDF417"]) {
+      return [[ZXPDF417Reader alloc] init];
+    }
+#endif
+
+    return [[ZXGenericMultipleBarcodeReader alloc] initWithDelegate:reader];
+  } else {
+    return [[VCZMultipleBarcodeReader alloc] initWithReader:reader];
+  }
+}
+
+- (id)detect:(Frame *)frame
+     formats:(NSArray<NSString *> *)formats
+     options:(NSDictionary *)options {
+  // This plugin initializes the barcode reader only the first time to
+  // maximize performance.
+  if (_reader == nil) {
+    _hints = [[self class] hintsWithFormats:formats options:options];
+    _delegateReader = [[self class] createMultiFormatReaderWithHints:_hints];
+    _reader = [[self class] createWrappedReaderWithDelegate:_delegateReader
+                                                    formats:formats
+                                                    options:options];
+  }
+
   CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(frame.buffer);
   CGImageRef videoFrameImage = NULL;
 
@@ -275,66 +426,70 @@ static id convertMetadataValue(id value) {
   ZXBinaryBitmap *bitmap = [[ZXBinaryBitmap alloc] initWithBinarizer:binarizer];
 
   NSError *error = nil;
-  ZXResult *result = [self.reader decodeWithState:bitmap error:&error];
+  NSArray<ZXResult *> *results = [self.reader decodeMultiple:bitmap
+                                                       hints:self.hints
+                                                       error:&error];
 
   CGImageRelease(videoFrameImage);
 
-  if (result) {
-    // The barcode format, such as a QR code or UPC-A
-    const ZXBarcodeFormat format = result.barcodeFormat;
+  if (results != nil) {
+    NSMutableArray *barcodes = [NSMutableArray arrayWithCapacity:results.count];
 
-    // We have to convert keys in resultMetadata to string due to
-    // VisionCamera limitation.
-    NSMutableDictionary *meradata = [@{} mutableCopy];
+    for (ZXResult *result in results) {
+      // The barcode format, such as a QR code or UPC-A
+      const ZXBarcodeFormat format = result.barcodeFormat;
 
-    if (result.resultMetadata != nil) {
-      for (id key in result.resultMetadata) {
-        id value = result.resultMetadata[key];
-        NSString *stringKey =
-            [key isKindOfClass:[NSNumber class]]
-                ? createStringFromZXResultMetadataType([key intValue])
-                : [key description];
+      // We have to convert keys in resultMetadata to string due to
+      // VisionCamera limitation.
+      NSMutableDictionary *meradata = [@{} mutableCopy];
 
-        // NSLog(@"metadata: %@ = %@", stringKey, value);
-        meradata[stringKey] = convertMetadataValue(value);
+      if (result.resultMetadata != nil) {
+        for (id key in result.resultMetadata) {
+          id value = result.resultMetadata[key];
+          NSString *stringKey =
+              [key isKindOfClass:[NSNumber class]]
+                  ? createStringFromZXResultMetadataType([key intValue])
+                  : [key description];
+
+          // NSLog(@"metadata: %@ = %@", stringKey, value);
+          meradata[stringKey] = convertMetadataValue(value);
+        }
+
+        // QRCode: Structured append
+        NSNumber *saSeq =
+            result
+                .resultMetadata[@(kResultMetadataTypeStructuredAppendSequence)];
+        if (saSeq != nil) {
+          const uint8_t seq = [saSeq unsignedCharValue];
+
+          // +--------------------+-------------------+-------------------+
+          // | mode (4bits = 0x3) | seq index (4bits) | seq total (4bits) |
+          // +--------------------+-------------------+-------------------+
+
+          const int index = seq >> 4;
+          const int total = (seq & 0x0f) + 1;
+
+          meradata[@"structuredAppendIndex"] = @(index);
+          meradata[@"structuredAppendTotal"] = @(total);
+        }
       }
 
-      // QRCode: Structured append
-      NSNumber *saSeq =
-          result.resultMetadata[@(kResultMetadataTypeStructuredAppendSequence)];
-      if (saSeq != nil) {
-        const uint8_t seq = [saSeq unsignedCharValue];
-
-        // +--------------------+-------------------+-------------------+
-        // | mode (4bits = 0x3) | seq index (4bits) | seq total (4bits) |
-        // +--------------------+-------------------+-------------------+
-
-        const int index = seq >> 4;
-        const int total = (seq & 0x0f) + 1;
-
-        meradata[@"structuredAppendIndex"] = @(index);
-        meradata[@"structuredAppendTotal"] = @(total);
+      // Convert points
+      NSMutableArray *points = [NSMutableArray arrayWithCapacity:4];
+      if (result.resultPoints) {
+        for (ZXResultPoint *pt in result.resultPoints) {
+          [points addObject:convertZXResultPoint(pt)];
+        }
       }
-    }
 
-    // Convert points
-    NSMutableArray *points = [NSMutableArray arrayWithCapacity:4];
-    if (result.resultPoints) {
-      for (ZXResultPoint *pt in result.resultPoints) {
-        [points addObject:convertZXResultPoint(pt)];
-      }
-    }
-
-    return @{
-      @"width" : @(imageWidth),
-      @"height" : @(imageHeight),
-      @"barcodes" : @[ @{
+      [barcodes addObject:@{
         // raw text encoded by the barcode
         @"text" : result.text,
         // representing the format of the barcode that was decoded
         @"format" : createStringFromZXBarcodeFormat(format),
         // points related to the barcode in the image. These are typically
-        // points identifying finder patterns or the corners of the barcode. The
+        // points identifying finder patterns or the corners of the barcode.
+        // The
         // exact meaning is specific to the type of barcode that was decoded.
         @"cornerPoints" : points,
         // mapping ZXResultMetadataType keys to values. May be nil. This
@@ -342,9 +497,14 @@ static id convertMetadataValue(id value) {
         // optional metadata about what was detected about the barcode, like
         // orientation.
         @"metadata" : meradata,
-      } ]
-    };
+      }];
+    }
 
+    return @{
+      @"width" : @(imageWidth),
+      @"height" : @(imageHeight),
+      @"barcodes" : barcodes
+    };
   } else if (error != nil) {
     // Use error to determine why we didn't get a result, such as a barcode
     // not being found, an invalid checksum, or a format inconsistency.

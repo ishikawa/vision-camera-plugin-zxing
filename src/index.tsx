@@ -163,23 +163,48 @@ export type DetectionResult = {
   base64JPEG?: string;
 };
 
+export type DetectionOptions = {
+  /**
+   * Spend more time to try to find a barcode; optimize for accuracy, not speed.
+   *
+   * Default: `false`
+   */
+  accurate?: boolean;
+
+  /**
+   * Whether the scanner attempts to decode a barcode from an image, not by scanning the whole image,
+   * but by scanning subsets of the image. This is important when there may be multiple barcodes in
+   * an image, and detecting a barcode may find parts of multiple barcode and fail to decode
+   * (e.g. QR Codes). Instead this scans the four quadrants of the image -- and also the center
+   * 'quadrant' to cover the case where a barcode is found in the center.
+   *
+   * Default: `false`
+   */
+  readByQuadrant?: boolean;
+
+  /**
+   * Whether the scanner attempt to read several barcodes from one image.
+   *
+   * Default: `false`
+   */
+  readMultiple?: boolean;
+};
+
 /**
  * Scans barcodes in the passed frame with Zxing
  *
  * @param frame Camera frame
- * @param types Array of barcode types to detect (for optimal performance, use less types)
+ * @param formats Array of barcode formats to detect (for optimal performance, use less types)
  * @returns Detected barcodes from Zxing. Returns `null` if there was unexpected error or
  *          frame processor took too long to execute.
  */
 export function detectBarcodes(
   frame: Frame,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  types: any[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  options?: any
+  formats: BarcodeFormat[],
+  options: DetectionOptions = {}
 ): DetectionResult | null {
   'worklet';
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  return __detectBarcodes(frame, types, options);
+  return __detectBarcodes(frame, formats, options);
 }
